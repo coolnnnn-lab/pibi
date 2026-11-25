@@ -22,6 +22,7 @@ PC_DIR = Path(__file__).resolve().parent
 sys.path.insert(0, str(PC_DIR))
 import app_config as appcfg  # noqa: E402
 import updater  # noqa: E402
+import installer  # noqa: E402
 
 SETTINGS_PATH = appcfg.DATA_DIR / "app_settings.json"
 LEGACY_CFG = appcfg.DATA_DIR / "server.cfg"
@@ -412,6 +413,10 @@ class App(ctk.CTk):
     def __init__(self) -> None:
         super().__init__()
         self.title("Пиби")
+        try:
+            self.iconbitmap(str(appcfg.asset_path("pibi.ico")))
+        except Exception:
+            pass
         self.geometry("440x900")
         self.minsize(400, 780)
         self.configure(fg_color=BG)
@@ -443,7 +448,9 @@ class App(ctk.CTk):
         self.bind_all("<Control-KeyPress>", self._ctrl_keys)
         self.after(60, self._poll)
         self.after(40, self._frame)
-        if self.first_run or not self.settings.get("host"):
+        if appcfg.FROZEN and not installer.is_installed() and not self.settings.get("skip_install"):
+            self.after(300, self._maybe_install)
+        elif self.first_run or not self.settings.get("host"):
             self.after(300, self._open_settings)
         threading.Thread(target=self._check_update, daemon=True).start()
 
@@ -453,6 +460,13 @@ class App(ctk.CTk):
         bar = ctk.CTkFrame(self, fg_color="transparent")
         bar.pack(fill="x", padx=22, pady=(18, 2))
         self.header_bar = bar
+        try:
+            from PIL import Image
+            self._logo = ctk.CTkImage(Image.open(appcfg.asset_path("pibi_header.png")),
+                                      size=(40, 40))
+            ctk.CTkLabel(bar, text="", image=self._logo).pack(side="left", padx=(0, 10))
+        except Exception:
+            pass
         ctk.CTkLabel(bar, text="Пиби", text_color=TEXT,
                      font=ctk.CTkFont(size=28, weight="bold")).pack(side="left")
         ctk.CTkLabel(bar, text="голосовой ассистент", text_color=MUTED,
@@ -674,6 +688,26 @@ class App(ctk.CTk):
                 messagebox.showinfo("Пиби", text)
             self.license_shown = False
         self.after(200, ask)
+
+    def _maybe_install(self) -> None:
+        msg = ("Установить Пиби на этот компьютер?\n\n"
+               "Программа скопируется в папку Pibi в вашем профиле, ярлык появится "
+               "на рабочем столе и в меню «Пуск». Обновления потом ставятся сами.")
+        if messagebox.askyesno("Пиби", msg):
+            try:
+                installer.install()
+            except Exception as e:
+                messagebox.showwarning("Пиби", f"Не удалось установить: {e}")
+                self._open_settings()
+                return
+            messagebox.showinfo("Пиби", "Готово. Сейчас откроется установленная версия.")
+            installer.launch_installed()
+            self._on_close()
+        else:
+            self.settings["skip_install"] = True
+            save_settings(self.settings)
+            if self.first_run or not self.settings.get("host"):
+                self._open_settings()
 
     def _check_update(self) -> None:
         info = updater.check()

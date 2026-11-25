@@ -25,6 +25,7 @@ jobs:
           --collect-all customtkinter --collect-all sounddevice
           --hidden-import pyautogui --hidden-import pyperclip --hidden-import PIL
           --hidden-import pycaw --hidden-import comtypes
+          --icon pc/assets/pibi.ico --add-data "pc/assets;assets"
           --paths pc pc/pibi_app.py
       - name: Контрольная сумма
         shell: pwsh
