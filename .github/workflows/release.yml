@@ -1,0 +1,40 @@
+name: release
+on:
+  push:
+    tags: ["v*"]
+permissions:
+  contents: write
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.11" }
+      - name: Установка зависимостей
+        run: |
+          pip install -r pc/requirements-windows.txt pyinstaller
+      - name: Версия из тега
+        shell: pwsh
+        run: |
+          $v = "${{ github.ref_name }}".TrimStart("v")
+          (Get-Content pc/app_config.py) -replace 'VERSION = "[^"]*"', "VERSION = `"$v`"" | Set-Content pc/app_config.py -Encoding utf8
+      - name: Сборка exe
+        run: >
+          pyinstaller --noconsole --onefile --name Pibi
+          --collect-all customtkinter --collect-all sounddevice
+          --hidden-import pyautogui --hidden-import pyperclip --hidden-import PIL
+          --hidden-import pycaw --hidden-import comtypes
+          --paths pc pc/pibi_app.py
+      - name: Контрольная сумма
+        shell: pwsh
+        run: |
+          $h = (Get-FileHash dist/Pibi.exe -Algorithm SHA256).Hash.ToLower()
+          "$h  Pibi.exe" | Out-File dist/Pibi.exe.sha256 -Encoding ascii
+      - name: Публикация релиза
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/Pibi.exe
+            dist/Pibi.exe.sha256
+          generate_release_notes: true

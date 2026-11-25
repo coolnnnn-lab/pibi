@@ -1,0 +1,8 @@
+.venv/
+__pycache__/
+app_settings.json
+server.cfg
+app_error.log
+build/
+dist/
+*.spec
